@@ -34,6 +34,7 @@ docs/
   architecture.md          معماری کامل سیستم
   prd-mvp.md               فرم تعریف دامنه MVP (فاز ۰)
   sample-conversations.md  نمونه مکالمات ساختگی برای تست پرامپت
+  wiki-recipe.md           دستورالعمل ویکی دانش پروژه (برای وقتی کدبیس بزرگ شد)
 backend/
   app/                     اسکلت API (FastAPI + SQLAlchemy)
     models.py              Contact, Thread, Message, PolicyConfig, AuditLog
