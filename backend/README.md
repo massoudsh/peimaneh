@@ -43,4 +43,20 @@ app/
 - `POST /threads/{id}/follow-up/complete` — ثبت انجام پیگیری.
 - `GET /threads/{id}/audit` — تاریخچه تصمیم‌ها و رویدادهای thread.
 
+## تست‌ها
+
+از ریشه مخزن، پس از ساخت محیط مجازی:
+
+```bash
+backend/.venv/bin/pip install -r backend/requirements-dev.txt
+PYTHONPATH=backend backend/.venv/bin/python -m unittest discover -s backend -p 'test_*.py' -v
+```
+
+۱۴ تست integration روی SQLite مستقل اجرا می‌شوند؛ دیتابیس برنامه تغییر نمی‌کند.
+زمان `due_at` باید آینده و دارای timezone باشد. پاسخ مخاطب reminder فعال را لغو می‌کند؛ draft این کار را نمی‌کند. تکمیل پیگیری فقط انجام کار دستی را ثبت می‌کند و پیامی نمی‌فرستد.
+
+API هنوز احراز هویت ندارد و برای انتشار عمومی آماده نیست. مقدار actor در audit فعلاً نقش اعلام‌شده مسیر است، نه هویت تأییدشده کاربر. صف اعلان، worker خودکار و رابط کاربری هنوز ساخته نشده‌اند.
+
+پیش‌نویس issueهای اجرایی، وابستگی‌ها و معیارهای پذیرش: `../docs/github-issues.json`. این فایل به معنی ثبت issue در GitHub نیست؛ پیش از انتشار باید با issueهای موجود تطبیق داده شود.
+
 جزئیات کامل هر فاز: `../docs/roadmap.md`.
