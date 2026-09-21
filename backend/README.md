@@ -36,4 +36,11 @@ app/
 - Auth/نقش‌بندی کاربران (مدیر بازرگانی در برابر عضو تیم فروش).
 - Alembic migrations — فعلاً جدول‌ها مستقیم از مدل با `create_all` ساخته می‌شوند؛ برای پروداکشن باید migration اضافه شود.
 
+## پیگیری و audit
+
+- `GET /threads` — فهرست threadها با فیلتر مرحله، مخاطب، باز یا موعددار و pagination.
+- `PUT/DELETE /threads/{id}/follow-up` — زمان‌بندی یا لغو پیگیری.
+- `POST /threads/{id}/follow-up/complete` — ثبت انجام پیگیری.
+- `GET /threads/{id}/audit` — تاریخچه تصمیم‌ها و رویدادهای thread.
+
 جزئیات کامل هر فاز: `../docs/roadmap.md`.
