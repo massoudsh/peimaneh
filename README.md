@@ -30,25 +30,42 @@ inquiry → quote → sample → payment_terms → shipping → proforma → con
 
 ```
 docs/
-  roadmap.md               نقشه‌راه محصول (فاز ۰ تا ۷)
-  architecture.md          معماری کامل سیستم
-  prd-mvp.md               فرم تعریف دامنه MVP (فاز ۰)
-  sample-conversations.md  نمونه مکالمات ساختگی برای تست پرامپت
-  wiki-recipe.md           دستورالعمل ویکی دانش پروژه (برای وقتی کدبیس بزرگ شد)
+  roadmap.md               نقشه‌راه محصول
+  architecture.md          معماری سیستم
+  github-issues.json       backlog اجرایی issueها
 backend/
-  app/                     اسکلت API (FastAPI + SQLAlchemy)
-    models.py              Contact, Thread, Message, PolicyConfig, AuditLog
-    policy/engine.py        Policy Engine (guardrail کف قیمت/شرایط پرداخت/کشور حساس)
-    negotiation/state_machine.py   state machine مراحل مذاکره
-    routers/                contacts, threads, policy API
+  app/                     API واقعی FastAPI + SQLAlchemy
+  test_followups.py        تست‌های integration endpointها
+frontend/
+  index.html               dashboard چندصفحه‌ای
+  app.js                   صفحات و اتصال واقعی به API
+  style.css                رابط responsive و RTL-ready
+docker-compose.yml         frontend + backend + PostgreSQL
 ```
 
-## شروع سریع (Backend)
+## اجرای کامل با Docker
+
+پیش‌نیاز: Docker و Docker Compose.
+
+```bash
+docker compose up --build
+```
+
+- Dashboard: `http://localhost:8080`
+- API و مستندات: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
+
+رابط شامل صفحات Overview، Contacts، Opportunities، Follow-ups، Conversation و Company Policy است و فرم‌های آن مستقیماً endpointهای backend را فراخوانی می‌کنند؛ دکمه‌های نمایشی یا دادهٔ ساختگی در مسیر اصلی وجود ندارد.
+
+دادهٔ PostgreSQL در volume به نام `postgres_data` نگهداری می‌شود. رمز پیش‌فرض compose فقط برای توسعه محلی است و قبل از deployment باید با secret امن جایگزین شود.
+
+## اجرای backend بدون Docker
 
 ```bash
 cd backend
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+PYTHONPATH=. .venv/bin/python -m unittest discover -p 'test_*.py' -v
 .venv/bin/uvicorn app.main:app --reload
 ```
 
@@ -58,7 +75,7 @@ python3 -m venv .venv
 
 ## وضعیت پروژه
 
-فاز ۰/۱ نقشه‌راه — تعریف دامنه MVP و اسکلت اولیه backend آماده است. کانال ارتباطی واقعی (واتساپ/ایمیل)، NLU/NLG واقعی و پیگیری خودکار هنوز پیاده‌سازی نشده‌اند. کارهای باقی‌مانده در [Issues](https://github.com/massoudsh/peimaneh/issues) این ریپو پیگیری می‌شوند.
+فاز ۱/۲ نقشه‌راه — API پیگیری، audit، policy، مخاطب و مذاکره به همراه dashboard و compose آماده است. احراز هویت، اتصال واقعی کانال‌های خارجی، NLU/NLG، worker اعلان و migrationهای production هنوز باید در issueهای roadmap پیاده شوند. Human-in-the-loop همچنان اجباری است.
 
 ## نقشه‌راه
 
