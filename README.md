@@ -57,6 +57,11 @@ docker compose up --build
 
 رابط شامل صفحات Overview، Contacts، Opportunities، Follow-ups، Conversation و Company Policy است و فرم‌های آن مستقیماً endpointهای backend را فراخوانی می‌کنند؛ دکمه‌های نمایشی یا دادهٔ ساختگی در مسیر اصلی وجود ندارد.
 
+### ورود و نقش‌ها
+
+صفحهٔ ورود در اولین اجرا نمایش داده می‌شود. اولین حسابی که ساخته می‌شود باید `manager` باشد؛ ثبت‌نام‌های بعدی فقط `sales` هستند. APIهای contacts، threads و dashboard به bearer token نیاز دارند و تمام policy endpointها فقط برای manager مجازند. رمزها به‌صورت plaintext ذخیره نمی‌شوند و token خام در دیتابیس نگهداری نمی‌شود.
+
+
 دادهٔ PostgreSQL در volume به نام `postgres_data` نگهداری می‌شود. رمز پیش‌فرض compose فقط برای توسعه محلی است و قبل از deployment باید با secret امن جایگزین شود.
 
 ## اجرای backend بدون Docker
@@ -75,7 +80,7 @@ PYTHONPATH=. .venv/bin/python -m unittest discover -p 'test_*.py' -v
 
 ## وضعیت پروژه
 
-فاز ۱/۲ نقشه‌راه — API پیگیری، audit، policy، مخاطب و مذاکره به همراه dashboard و compose آماده است. احراز هویت، اتصال واقعی کانال‌های خارجی، NLU/NLG، worker اعلان و migrationهای production هنوز باید در issueهای roadmap پیاده شوند. Human-in-the-loop همچنان اجباری است.
+فاز ۱/۲ نقشه‌راه — API پیگیری، audit، policy، مخاطب و مذاکره به همراه dashboard، احراز هویت bearer-token و compose آماده است. اتصال واقعی کانال‌های خارجی، NLU/NLG، worker اعلان و migrationهای production هنوز باید در issueهای roadmap پیاده شوند. Human-in-the-loop همچنان اجباری است.
 
 ## نقشه‌راه
 

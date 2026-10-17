@@ -3,10 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.auth import require_manager
 from app.database import get_db
 from app.policy.engine import OfferInput, evaluate_offer
 
-router = APIRouter(prefix="/policy", tags=["policy"])
+router = APIRouter(prefix="/policy", tags=["policy"], dependencies=[Depends(require_manager)])
 
 
 @router.get("/active", response_model=schemas.PolicyConfigOut)

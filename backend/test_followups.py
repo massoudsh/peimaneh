@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app import models
+from app.auth import current_user
 from app.database import Base, get_db
 from app.main import app
 from app.negotiation.state_machine import NegotiationStage
@@ -25,6 +26,7 @@ class FollowUpTests(unittest.TestCase):
                 yield session
 
         app.dependency_overrides[get_db] = database
+        app.dependency_overrides[current_user] = lambda: models.User(id="test", email="test@example.com", role=models.UserRole.MANAGER)
         self.client = TestClient(app)
         response = self.client.post("/contacts", json={"name": "Test buyer"})
         self.assertEqual(response.status_code, 200)

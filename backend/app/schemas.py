@@ -9,6 +9,31 @@ from app.models import Channel, MessageSender, MessageStatus
 from app.negotiation.state_machine import NegotiationStage
 
 
+class AuthRegister(BaseModel):
+    email: str
+    password: str = Field(min_length=12, max_length=200)
+    role: str = "sales"
+
+
+class AuthLogin(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_at: datetime.datetime
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    email: str
+    role: str
+
+
 class ContactCreate(BaseModel):
     name: str
     company: str | None = None

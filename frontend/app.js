@@ -5,8 +5,12 @@ const date = value => value ? new Date(value).toLocaleString() : '—';
 const field = (name, label, type = 'text', value = '') => `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" required></label>`;
 const select = (name, label, options) => `<label>${label}<select name="${name}">${options.map(([value,text]) => `<option value="${esc(value)}">${esc(text)}</option>`).join('')}</select></label>`;
 async function api(path, method = 'GET', body) {
-  const response = await fetch(`/api${path}`, {method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined});
+  const token = localStorage.getItem('peimaneh_token');
+  const headers = body ? {'Content-Type':'application/json'} : {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`/api${path}`, {method, headers, body: body ? JSON.stringify(body) : undefined});
   const data = await response.json();
+  if (response.status === 401 && !path.startsWith('/auth/')) { location.hash = '#/login'; throw new Error('authentication required'); }
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail || data));
   return data;
 }
@@ -35,7 +39,13 @@ async function render() {
   try {
     let html = '';
     let setup = () => {};
-    if (page === 'dashboard') {
+    if (page === 'login') {
+      html = '<h1>Sign in to Peimaneh</h1><p>Access is private and every commercial action remains human-reviewed.</p>' + form('login',field('email','Email','email')+field('password','Password','password'),'Sign in') + '<h2>First-time setup</h2><p>The first account becomes the manager. Later registrations create sales users.</p>' + form('register',field('email','Email','email')+field('password','Password','password'),'Create first account');
+      setup = () => {
+        bind('login', async data => { const result = await api('/auth/login','POST',data); localStorage.setItem('peimaneh_token',result.access_token); location.hash = '#/dashboard'; });
+        bind('register', async data => { const result = await api('/auth/register','POST',{...data,role:'manager'}); localStorage.setItem('peimaneh_token',result.access_token); location.hash = '#/dashboard'; });
+      };
+    } else if (page === 'dashboard') {
       const data = await api('/dashboard/summary');
       html = '<h1>Your trade overview</h1><p>Real opportunities, clear next steps. Every commercial decision stays with your team.</p>';
       html += `<div class="grid">${[['Contacts',data.contacts],['Open opportunities',data.open_threads],['Due follow-ups',data.due_follow_ups],['Confirmed',data.stages.confirmation]].map(([label,value]) => `<div class="card">${label}<strong>${value}</strong></div>`).join('')}</div>`;

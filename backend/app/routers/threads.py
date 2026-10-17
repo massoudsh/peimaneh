@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.auth import current_user
 from app.database import get_db
 from app.negotiation.state_machine import InvalidTransitionError, NegotiationStage, transition
 
-router = APIRouter(prefix="/threads", tags=["threads"])
+router = APIRouter(prefix="/threads", tags=["threads"], dependencies=[Depends(current_user)])
 
 
 @router.post("", response_model=schemas.ThreadOut)
