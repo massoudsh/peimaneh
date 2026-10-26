@@ -2,7 +2,7 @@ const view = document.querySelector('#view');
 const feedback = document.querySelector('#feedback');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date = value => value ? new Date(value).toLocaleString() : '—';
-const field = (name, label, type = 'text', value = '') => `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" required></label>`;
+const field = (name, label, type = 'text', value = '', required = true) => `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? 'required' : ''}></label>`;
 const select = (name, label, options) => `<label>${label}<select name="${name}">${options.map(([value,text]) => `<option value="${esc(value)}">${esc(text)}</option>`).join('')}</select></label>`;
 async function api(path, method = 'GET', body) {
   const token = localStorage.getItem('peimaneh_token');
@@ -32,7 +32,8 @@ const stages = ['inquiry','quote','sample','payment_terms','shipping','proforma'
 let revision = 0;
 async function render() {
   const current = ++revision;
-  const [page = 'dashboard', id] = location.hash.slice(2).split('/');
+  const [route, query = ''] = location.hash.slice(2).split('?');
+  const [page = 'dashboard', id] = (route || 'dashboard').split('/');
   feedback.innerHTML = '';
   view.innerHTML = '<p>Loading workspace…</p>';
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.hash === `#/${page}`));
@@ -53,7 +54,7 @@ async function render() {
     } else if (page === 'contacts') {
       const contacts = await api('/contacts');
       html = '<h1>Contacts</h1><p>Your international buyers and suppliers.</p>' + table(['Name','Company','Country','Channel'],contacts.map(c => [esc(c.name),esc(c.company),esc(c.country),esc(c.channel)]));
-      html += '<h2>Add a contact</h2>' + form('contact',field('name','Name')+field('company','Company')+field('country','Country')+select('channel','Channel',['email','whatsapp','linkedin','other'].map(c => [c,c])), 'Create contact');
+      html += '<h2>Add a contact</h2>' + form('contact',field('name','Name')+field('company','Company (optional)','text','',false)+field('country','Country (optional)','text','',false)+select('channel','Channel',['email','whatsapp','linkedin','other'].map(c => [c,c])), 'Create contact');
       setup = () => bind('contact', data => api('/contacts','POST',data));
     } else if (page === 'threads' && id) {
       const path = `/threads/${encodeURIComponent(id)}`;
@@ -61,7 +62,7 @@ async function render() {
       html = `<a href="#/threads">← All opportunities</a><h1>${esc(contact.name)}</h1><p>Stage: ${esc(thread.stage)} · Follow-up: ${esc(date(thread.next_follow_up_at))}</p>`;
       html += '<h2>Conversation</h2><div class="panel">' + (messages.map(m => `<div class="message" dir="auto"><span class="muted">${esc(m.sender)} · ${esc(m.status)} · ${esc(date(m.created_at))}</span><p>${esc(m.text)}</p></div>`).join('') || 'No messages yet.') + '</div>';
       html += form('message',select('sender','Record type',[['contact','Received from contact'],['human','Already sent manually'],['agent_draft','Unapproved draft']])+'<label>Message<textarea name="text" required maxlength="50000" dir="auto"></textarea></label>','Save message (does not send)');
-      html += '<h2>Next action</h2>' + form('schedule',field('due_at','Follow-up time','datetime-local'),'Schedule follow-up');
+      if (thread.stage !== 'confirmation') html += '<h2>Next action</h2>' + form('schedule',field('due_at','Follow-up time','datetime-local'),'Schedule follow-up');
       if (thread.next_follow_up_at) html += form('complete','','Mark follow-up complete')+form('cancel','','Cancel follow-up');
       html += '<h2>Negotiation stage</h2><p>This private pilot records your manual decision; it does not establish a binding order or send a message.</p>' + form('stage',select('stage','Next stage',stages.map(s => [s,s])),'Record stage');
       html += '<h2>Audit trail</h2>' + table(['Action','Actor','Details'],audit.map(a => [esc(a.action),esc(a.actor),esc(JSON.stringify(a.detail))]));
@@ -73,12 +74,13 @@ async function render() {
         bind('stage',data => api(path+'/transition?target_stage='+encodeURIComponent(data.stage),'POST'));
       };
     } else if (page === 'threads' || page === 'follow-ups') {
-      const offset = Math.max(0, Number(new URLSearchParams(location.search).get('offset')) || 0);
+      const requestedOffset = Number(new URLSearchParams(query).get('offset'));
+      const offset = Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
       const [threads,contacts] = await Promise.all([api(`/threads?limit=50&offset=${offset}${page === 'follow-ups' ? '&due_only=true' : ''}`),api('/contacts')]);
       const names = Object.fromEntries(contacts.map(c => [c.id,c.name]));
       html = `<h1>${page === 'follow-ups' ? 'Due follow-ups' : 'Opportunities'}</h1><p>${page === 'follow-ups' ? 'Overdue reminders for open conversations.' : 'Move conversations forward, one reviewed step at a time.'}</p>`;
       html += table(['Contact','Stage','Next follow-up',''],threads.map(t => [esc(names[t.contact_id] || t.contact_id),esc(t.stage),esc(date(t.next_follow_up_at)),`<a href="#/threads/${encodeURIComponent(t.id)}">Open conversation</a>`]));
-      html += `<div class="actions">${offset ? `<a href="?offset=${Math.max(0,offset-50)}#/${page}">Previous</a>` : ''}${threads.length === 50 ? `<a href="?offset=${offset+50}#/${page}">Next</a>` : ''}</div>`;
+      html += `<div class="actions">${offset ? `<a href="#/${page}?offset=${Math.max(0,offset-50)}">Previous</a>` : ''}${threads.length === 50 ? `<a href="#/${page}?offset=${offset+50}">Next</a>` : ''}</div>`;
       if (page === 'threads') html += contacts.length ? '<h2>Start an opportunity</h2>'+form('thread',select('contact_id','Contact',contacts.map(c => [c.id,c.name])),'Create opportunity') : '<p>Add a contact first.</p>';
       setup = () => bind('thread',data => api('/threads','POST',data));
     } else if (page === 'policy') {
@@ -90,7 +92,7 @@ async function render() {
       html += '<h2>Evaluate an offer</h2>' + form('evaluate',field('price','Price','number')+field('payment_term','Payment term')+field('discount_pct','Discount %','number',0)+'<label>Country<input name="country"></label><label>Customer name<input name="customer_name"></label>','Evaluate offer') + '<div id="decision" role="status"></div>';
       setup = () => {
         document.querySelectorAll('input[type=number]').forEach(input => { input.min = '0'; input.step = 'any'; if(input.name.includes('discount')) input.max = '100'; });
-        bind('policy',data => api('/policy','POST',{...data,price_floor:Number(data.price_floor),max_discount_pct:Number(data.max_discount_pct),allowed_payment_terms:data.allowed_payment_terms.split(',').map(s => s.trim()).filter(Boolean),sensitive_countries:data.sensitive_countries.split(',').map(s => s.trim()).filter(Boolean)}));
+        bind('policy',data => api('/policy','POST',{...data,capacity_notes:policy?.capacity_notes ?? null,sensitive_customers:policy?.sensitive_customers ?? [],price_floor:Number(data.price_floor),max_discount_pct:Number(data.max_discount_pct),allowed_payment_terms:data.allowed_payment_terms.split(',').map(s => s.trim()).filter(Boolean),sensitive_countries:data.sensitive_countries.split(',').map(s => s.trim()).filter(Boolean)}));
         document.getElementById('evaluate').onsubmit = async event => {
           event.preventDefault(); const button = event.target.querySelector('button'); button.disabled = true;
           try { const data = Object.fromEntries(new FormData(event.target)); const result = await api('/policy/evaluate-offer','POST',{...data,price:Number(data.price),discount_pct:Number(data.discount_pct)}); document.getElementById('decision').innerHTML = `<div class="panel"><h2>${esc(result.status)}</h2>${result.reasons.map(r => `<p>${esc(r)}</p>`).join('')}</div>`; }
