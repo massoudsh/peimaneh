@@ -48,6 +48,18 @@ app/
 - `POST /threads/{id}/follow-up/complete` — ثبت انجام پیگیری.
 - `GET /threads/{id}/audit` — تاریخچه تصمیم‌ها و رویدادهای thread.
 
+## Docker
+
+از ریشه پروژه:
+
+```bash
+cp .env.example .env
+docker compose up --build
+docker compose --profile test run --rm backend-tests
+```
+
+`Dockerfile` فقط runtime dependencies را نصب می‌کند و `Dockerfile.test` برای اجرای تست‌هاست؛ فایل‌های محیطی و cache وارد image نمی‌شوند.
+
 ## تست‌ها
 
 از ریشه مخزن، پس از ساخت محیط مجازی:

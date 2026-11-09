@@ -45,15 +45,35 @@ docker-compose.yml         frontend + backend + PostgreSQL
 
 ## اجرای کامل با Docker
 
-پیش‌نیاز: Docker و Docker Compose.
+پیش‌نیاز: Docker و Docker Compose. ابتدا تنظیمات توسعه را بسازید و رمز را عوض کنید:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
 - Dashboard: `http://localhost:8080`
 - API و مستندات: `http://localhost:8000/docs`
 - Health: `http://localhost:8000/health`
+
+اجرای تست‌های backend داخل container:
+
+```bash
+docker compose --profile test run --build --rm backend-tests
+docker compose --profile test run --build --rm frontend-tests
+```
+
+توقف سرویس‌ها بدون حذف داده:
+
+```bash
+docker compose down
+```
+
+حذف volume دیتابیس فقط برای reset توسعه:
+
+```bash
+docker compose down -v
+```
 
 رابط شامل صفحات Overview، Contacts، Opportunities، Follow-ups، Conversation و Company Policy است و فرم‌های آن مستقیماً endpointهای backend را فراخوانی می‌کنند؛ دکمه‌های نمایشی یا دادهٔ ساختگی در مسیر اصلی وجود ندارد.
 
@@ -62,7 +82,7 @@ docker compose up --build
 صفحهٔ ورود در اولین اجرا نمایش داده می‌شود. اولین حسابی که ساخته می‌شود باید `manager` باشد؛ ثبت‌نام‌های بعدی فقط `sales` هستند. APIهای contacts، threads و dashboard به bearer token نیاز دارند و تمام policy endpointها فقط برای manager مجازند. رمزها به‌صورت plaintext ذخیره نمی‌شوند و token خام در دیتابیس نگهداری نمی‌شود.
 
 
-دادهٔ PostgreSQL در volume به نام `postgres_data` نگهداری می‌شود. رمز پیش‌فرض compose فقط برای توسعه محلی است و قبل از deployment باید با secret امن جایگزین شود.
+دادهٔ PostgreSQL در volume منطقی `postgres_data` نگهداری می‌شود (نام واقعی شامل نام پروژه Compose است). مقادیر `.env.example` صرفاً نمونه‌اند؛ `POSTGRES_PASSWORD` و رمز URL-encoded در `DATABASE_URL` باید هماهنگ باشند و با تغییر user/db نیز URL اصلاح شود. تغییر رمز env رمز دیتابیسِ موجود در volume را تغییر نمی‌دهد. `.env` را commit نکنید. پورت‌های وب و API فقط روی loopback میزبان bind می‌شوند و دیتابیس پورت عمومی ندارد؛ انتشار نیازمند reverse proxy امن و رفع موانع امنیتی roadmap است. `down -v` همه داده‌های volume را حذف می‌کند؛ قبل از آن backup لازم است.
 
 ## اجرای backend بدون Docker
 
