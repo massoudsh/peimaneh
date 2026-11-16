@@ -26,7 +26,8 @@ class FollowUpTests(unittest.TestCase):
                 yield session
 
         app.dependency_overrides[get_db] = database
-        app.dependency_overrides[current_user] = lambda: models.User(id="test", email="test@example.com", role=models.UserRole.MANAGER)
+        self.user = models.User(id="test", email="test@example.com", role=models.UserRole.MANAGER)
+        app.dependency_overrides[current_user] = lambda: self.user
         self.client = TestClient(app)
         response = self.client.post("/contacts", json={"name": "Test buyer"})
         self.assertEqual(response.status_code, 200)
@@ -52,14 +53,14 @@ class FollowUpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(datetime.datetime.fromisoformat(response.json()["next_follow_up_at"]), later)
         events = self.client.get(self.path + "/audit").json()
-        self.assertEqual([event["action"] for event in events], ["follow_up_scheduled"] * 2)
+        self.assertEqual([event["action"] for event in events][1:], ["follow_up_scheduled"] * 2)
 
     def test_schedule_requires_future_timezone_aware_date(self):
         for value in ["2020-01-01T12:00:00Z", "2099-01-01T12:00:00", "invalid", None]:
             with self.subTest(value=value):
                 response = self.client.put(self.path + "/follow-up", json={"due_at": value})
                 self.assertEqual(response.status_code, 422)
-        self.assertEqual(self.client.get(self.path + "/audit").json(), [])
+        self.assertNotIn("follow_up_scheduled", [event["action"] for event in self.client.get(self.path + "/audit").json()])
 
     def test_timezone_normalization(self):
         due = self.due.astimezone(datetime.timezone(datetime.timedelta(hours=3, minutes=30)))
@@ -83,7 +84,7 @@ class FollowUpTests(unittest.TestCase):
             response = self.client.delete(self.path + "/follow-up")
             self.assertEqual(response.status_code, 200)
             self.assertIsNone(response.json()["next_follow_up_at"])
-        self.assertEqual(len(self.client.get(self.path + "/audit").json()), 2)
+        self.assertEqual(len(self.client.get(self.path + "/audit").json()), 3)
 
     def test_contact_reply_cancels_reminder(self):
         self.schedule()
@@ -131,20 +132,54 @@ class FollowUpTests(unittest.TestCase):
             self.assertEqual(self.client.get("/threads?" + query).status_code, 422)
 
     def test_transition_audit_and_invalid_transition(self):
-        self.assertEqual(self.client.post(self.path + "/transition?target_stage=confirmation").status_code, 400)
-        self.assertEqual(self.client.get(self.path + "/audit").json(), [])
-        self.assertEqual(self.client.post(self.path + "/transition?target_stage=quote").status_code, 200)
-        event = self.client.get(self.path + "/audit").json()[0]
-        self.assertEqual(event["detail"], {"from": "inquiry", "to": "quote"})
+        self.assertEqual(
+            self.client.post(self.path + "/transition", json={"target_stage": "confirmation"}).status_code, 409
+        )
+        self.assertEqual(self.client.get(self.path + "/audit").json()[0]["action"], "thread_created")
+        self.assertEqual(
+            self.client.post(self.path + "/transition", json={"target_stage": "quote"}).status_code, 200
+        )
+        events = self.client.get(self.path + "/audit").json()
+        self.assertEqual([event["action"] for event in events], ["thread_created", "stage_transition"])
+        self.assertEqual(events[-1]["detail"], {"from": "inquiry", "to": "quote"})
+        self.assertEqual(events[-1]["actor"], "test@example.com")
+
+    def test_transitions_endpoint_and_manager_only_confirmation(self):
+        transitions = self.client.get(self.path + "/transitions").json()
+        self.assertEqual(transitions["current_stage"], "inquiry")
+        self.assertEqual(transitions["allowed_stages"], ["quote"])
+        self.assertFalse(transitions["requires_manager"])
+        with Session(self.engine) as session:
+            session.get(models.Thread, self.thread).stage = NegotiationStage.PROFORMA
+            session.commit()
+        transitions = self.client.get(self.path + "/transitions").json()
+        self.assertEqual(transitions["allowed_stages"], ["shipping", "confirmation"])
+        self.assertTrue(transitions["requires_manager"])
+        self.user.role = models.UserRole.SALES
+        response = self.client.post(self.path + "/transition", json={"target_stage": "confirmation"})
+        self.assertEqual(response.status_code, 403)
 
     def test_confirmation_clears_follow_up(self):
         self.schedule()
         with Session(self.engine) as session:
             session.get(models.Thread, self.thread).stage = NegotiationStage.PROFORMA
             session.commit()
-        response = self.client.post(self.path + "/transition?target_stage=confirmation")
+        response = self.client.post(self.path + "/transition", json={"target_stage": "confirmation"})
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["next_follow_up_at"])
+
+    def test_search_filters_by_contact_and_company(self):
+        self.assertEqual(len(self.client.get("/threads?q=Test").json()), 1)
+        self.assertEqual(self.client.get("/threads?q=missing").json(), [])
+        self.assertEqual(len(self.client.get("/contacts?q=buyer").json()), 1)
+        self.assertEqual(self.client.get("/contacts?q=zzz").json(), [])
+        self.assertEqual(self.client.get("/contacts?limit=0").status_code, 422)
+
+    def test_message_pagination(self):
+        for index in range(3):
+            self.client.post(self.path + "/messages", json={"sender": "human", "text": f"m{index}"})
+        self.assertEqual(len(self.client.get(self.path + "/messages?limit=2").json()), 2)
+        self.assertEqual(len(self.client.get(self.path + "/messages?limit=2&offset=2").json()), 1)
 
     def test_missing_threads(self):
         for method, path, data in [
@@ -159,9 +194,9 @@ class FollowUpTests(unittest.TestCase):
     def test_audit_is_thread_scoped(self):
         self.schedule()
         other = self.client.post("/threads", json={"contact_id": self.contact}).json()["id"]
-        self.assertEqual(self.client.get(f"/threads/{other}/audit").json(), [])
+        self.assertEqual([event["action"] for event in self.client.get(f"/threads/{other}/audit").json()], ["thread_created"])
         with Session(self.engine) as session:
-            self.assertEqual(len(session.scalars(select(models.AuditLog)).all()), 1)
+            self.assertEqual(len(session.scalars(select(models.AuditLog)).all()), 3)
 
 
 if __name__ == "__main__":

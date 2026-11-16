@@ -1,52 +1,58 @@
-# Backend — پیمانه (اسکلت فاز ۱)
+# Backend — پیمانه
 
-اسکلت اولیه API طبق `docs/architecture.md`. شامل مدل‌های داده اصلی (Contact, Thread, Message, PolicyConfig, AuditLog)، موتور سیاست (Policy Engine) و state machine مذاکره.
+API واقعی FastAPI + SQLAlchemy طبق `docs/architecture.md`. شامل مدل‌های داده (Contact, Thread, Message, PolicyConfig, AuditLog, User, SessionToken)، موتور سیاست، state machine مذاکره، احراز هویت و migrationهای Alembic.
 
-## اجرا (روی سرور، نه داخل کانتینر بیلد سنگین)
+## اجرا
 
 ```bash
 cd backend
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --reload
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+DATABASE_URL=sqlite:///./peimaneh.db .venv/bin/alembic upgrade head
+ALLOW_BOOTSTRAP_REGISTRATION=true .venv/bin/uvicorn app.main:app --reload
 ```
 
-سپس مستندات تعاملی API در `http://localhost:8000/docs` در دسترس است.
+سپس اولین حساب مدیر را از `POST /auth/bootstrap` بسازید و متغیر `ALLOW_BOOTSTRAP_REGISTRATION` را به `false` برگردانید. مستندات تعاملی API: `http://localhost:8000/docs`.
 
 ## ساختار
 
 ```
 app/
-  database.py          اتصال SQLAlchemy (پیش‌فرض SQLite برای توسعه)
-  models.py             مدل‌های داده (Contact, Thread, Message, PolicyConfig, AuditLog)
-  schemas.py             Pydantic schemas برای API
+  database.py            اتصال SQLAlchemy (SQLite برای توسعه، PostgreSQL در compose)
+  models.py              مدل‌های داده و ایندکس‌ها
+  schemas.py             Pydantic schemas و اعتبارسنجی ورودی
+  auth.py                hash رمز/توکن، نشست bearer، نقش‌ها، قفل ورود
   negotiation/
-    state_machine.py     مراحل مذاکره + قوانین انتقال بین مراحل
+    state_machine.py      مراحل مذاکره و انتقال‌های مجاز
   policy/
-    engine.py             Guardrail — ارزیابی پیشنهاد در برابر سیاست شرکت
+    engine.py             Guardrail ارزیابی پیشنهاد
   routers/
-    contacts.py, threads.py, policy.py
-  main.py                 نقطه ورود FastAPI
+    auth.py, contacts.py, threads.py, policy.py
+  main.py                 نقطه ورود FastAPI و خلاصه dashboard
+migrations/               baseline و migrationهای نسخه‌دار Alembic
+entrypoint.sh             alembic upgrade head سپس uvicorn
 ```
 
-## چیزهایی که عمداً هنوز پیاده نشده (فاز‌های بعدی نقشه‌راه)
-- اتصال واقعی به کانال‌ها (واتساپ بیزینس API، ایمیل) — فعلاً فقط API داخلی برای ثبت پیام دستی/تستی.
-- NLU/NLG واقعی (تشخیص نیاز، تولید پاسخ چندزبانه) — فعلاً فقط ذخیره متن خام پیام.
-- Follow-up Scheduler و escalation rules خودکار.
-- دعوت اعضا، جداسازی سازمان‌ها، لغو نشست و محدودیت تلاش ورود هنوز تکمیل نشده‌اند؛ bearer-token و نقش‌های manager/sales موجودند.
-- Alembic migrations — فعلاً جدول‌ها مستقیم از مدل با `create_all` ساخته می‌شوند؛ برای پروداکشن باید migration اضافه شود.
+## احراز هویت و نقش‌ها
 
-- `GET /auth/me` — اطلاعات کاربر جاری.
-- `POST /auth/register` — ساخت حساب اول به‌عنوان manager؛ حساب‌های بعدی sales هستند.
-- `POST /auth/login` — دریافت bearer token هفت‌روزه.
+- `POST /auth/bootstrap` — ساخت نخستین مدیر؛ فقط با `ALLOW_BOOTSTRAP_REGISTRATION=true` و وقتی هیچ کاربری وجود ندارد.
+- `POST /auth/login` — دریافت bearer token هفت‌روزه؛ پس از ۵ تلاش ناموفق، حساب ۱۵ دقیقه قفل می‌شود.
+- `POST /auth/logout` — باطل‌کردن نشست جاری؛ `POST /auth/logout-all` همهٔ نشست‌ها.
+- `GET /auth/me` — کاربر جاری.
+- `GET/POST /auth/users` و `PATCH /auth/users/{id}` — مدیریت اعضا، فقط مدیر.
 
-تمام endpointهای contacts، threads و dashboard به توکن نیاز دارند؛ policy فقط manager است. `/health` و endpointهای auth عمومی‌اند.
+تمام endpointهای contacts، threads و dashboard به توکن نیاز دارند. سیاست شرکت و مدیریت کاربران فقط برای مدیر است. تأیید نهایی یک فرصت (`confirmation`) نیز فقط با نقش مدیر انجام می‌شود. هویت ثبت‌شده در audit ایمیل کاربر تأییدشده است، نه مقداری از بدنهٔ درخواست.
 
+## APIهای اصلی
 
-- `GET /threads` — فهرست threadها با فیلتر مرحله، مخاطب، باز یا موعددار و pagination.
+- `GET /contacts` — جست‌وجو (`q`) و pagination.
+- `GET /threads` — فیلتر مرحله، مخاطب، باز/موعددار، جست‌وجو و pagination.
+- `GET /threads/{id}/transitions` — انتقال‌های مجاز از سمت سرور.
+- `POST /threads/{id}/transition` با بدنهٔ `{"target_stage": "..."}`.
 - `PUT/DELETE /threads/{id}/follow-up` — زمان‌بندی یا لغو پیگیری.
 - `POST /threads/{id}/follow-up/complete` — ثبت انجام پیگیری.
-- `GET /threads/{id}/audit` — تاریخچه تصمیم‌ها و رویدادهای thread.
+- `GET /threads/{id}/audit` — تاریخچه رویدادها با pagination.
+- `GET/POST /policy` و `POST /policy/evaluate-offer` — فقط مدیر.
 
 ## Docker
 
@@ -55,25 +61,25 @@ app/
 ```bash
 cp .env.example .env
 docker compose up --build
-docker compose --profile test run --rm backend-tests
+docker compose --profile test run --build --rm backend-tests
 ```
 
-`Dockerfile` فقط runtime dependencies را نصب می‌کند و `Dockerfile.test` برای اجرای تست‌هاست؛ فایل‌های محیطی و cache وارد image نمی‌شوند.
+`Dockerfile` migrationها را قبل از اجرای API اعمال می‌کند و با کاربر غیر root اجرا می‌شود؛ `Dockerfile.test` فقط برای تست است و env/cache وارد image نمی‌شوند.
 
 ## تست‌ها
 
-از ریشه مخزن، پس از ساخت محیط مجازی:
-
 ```bash
-backend/.venv/bin/pip install -r backend/requirements-dev.txt
-PYTHONPATH=backend backend/.venv/bin/python -m unittest discover -s backend -p 'test_*.py' -v
+cd backend
+PYTHONPATH=. .venv/bin/python -m unittest discover -p 'test_*.py' -v
 ```
 
-تست‌های auth و follow-up روی SQLite مستقل اجرا می‌شوند؛ دیتابیس برنامه تغییر نمی‌کند.
-زمان `due_at` باید آینده و دارای timezone باشد. پاسخ مخاطب reminder فعال را لغو می‌کند؛ draft این کار را نمی‌کند. تکمیل پیگیری فقط انجام کار دستی را ثبت می‌کند و پیامی نمی‌فرستد.
+تست‌ها روی SQLite در حافظه اجرا می‌شوند و دیتابیس برنامه را تغییر نمی‌دهند. پوشش: احراز هویت/نقش‌ها/قفل ورود/لغو نشست، سیاست و نسخه‌بندی، follow-up، audit، جست‌وجو، pagination و انتقال مرحله.
 
-API دارای احراز هویت اولیه و رابط چندصفحه‌ای است، اما برای انتشار عمومی آماده نیست: ثبت‌نام عمومی و داده مشترک نیازمند بازطراحی دسترسی هستند. مقدار actor در audit فعلاً نقش اعلام‌شده مسیر است، نه هویت تأییدشده کاربر. صف اعلان و worker خودکار هنوز ساخته نشده‌اند.
+## موارد باقی‌مانده (فازهای بعدی)
 
-پیش‌نویس issueهای اجرایی، وابستگی‌ها و معیارهای پذیرش: `../docs/github-issues.json`. این فایل به معنی ثبت issue در GitHub نیست؛ پیش از انتشار باید با issueهای موجود تطبیق داده شود.
+- اتصال رسمی کانال‌ها (واتساپ بیزینس API، ایمیل) و NLU/NLG واقعی.
+- worker اعلان پیگیری با idempotency و inbox.
+- جداسازی سازمانی (multi-tenant) و دعوت‌نامهٔ امن به‌جای ساخت حساب مستقیم توسط مدیر.
+- آزمون runtime روی PostgreSQL و سخت‌سازی secretهای deployment؛ CI فعلی compose را validate می‌کند اما imageها را اجرا نمی‌کند.
 
-جزئیات کامل هر فاز: `../docs/roadmap.md`.
+پیش‌نویس issueهای اجرایی: `../docs/github-issues.json`. جزئیات فازها: `../docs/roadmap.md`.

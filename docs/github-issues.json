@@ -58,5 +58,13 @@
       "title": "Phase 7: Measure conversion, response time and follow-up outcomes",
       "body": "## Implementation\n- Define events and metric semantics for open opportunities, human-confirmed orders, first response time and follow-up outcomes.\n- Derive reporting from auditable events without storing unnecessary message content.\n- Distinguish missing/incomplete data from zero outcomes and use organization-scoped access.\n- Add consented tone experiments only after baseline metrics are reliable; persist assignment and human edits.\n- Use human rejection/edit feedback to propose improvements, never to silently loosen commercial policy.\n\n## Acceptance and tests\n- Deterministic fixture reports verify denominators, timezone boundaries, repeated events and corrected outcomes.\n- Small samples are labeled inconclusive and cross-organization reporting is denied.\n\n## Dependencies\nAuthenticated usage, reliable audit events, pilot volume and explicit experiment approval."
     }
-  ]
+  ],
+  "last_audited": "2026-11-16",
+  "completed_in_repo": {
+    "access": "Bearer-token auth, manager/sales roles, member management, logout/revoke, login lockout; organization isolation still open.",
+    "migrations": "Alembic baseline plus CI drift check; production PostgreSQL runtime verification still open.",
+    "dashboard": "Persian RTL workspace with role-aware navigation, search, pagination and audit paging; visual/accessibility review still open.",
+    "follow-ups": "Manual follow-up APIs and UI are complete; notification worker and inbox still open.",
+    "policy-review": "Manager-only policy endpoints, server-provided transitions and manager-only confirmation exist; full draft approval workflow still open."
+  }
 }

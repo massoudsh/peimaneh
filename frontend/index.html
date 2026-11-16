@@ -1,3 +1,33 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Peimaneh · Trade workspace</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><aside><a class="brand" href="#/dashboard">Peimaneh <small>TRADE WORKSPACE</small></a><nav><a href="#/dashboard">Overview</a><a href="#/contacts">Contacts</a><a href="#/threads">Opportunities</a><a href="#/follow-ups">Follow-ups</a><a href="#/policy">Company policy</a></nav><p class="notice">Private pilot<br>Human review required.<br>No automatic sending.</p></aside><main><header><span>YOUR TRADE OPERATIONS</span><span class="badge">Pilot workspace</span></header><div id="feedback" role="status" aria-live="polite"></div><section id="view" aria-live="polite"></section></main></body></html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>پیمانه · میز کار تجارت خارجی</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside>
+    <a class="brand" href="#/dashboard">پیمانه<small>میز کار تجارت خارجی</small></a>
+    <nav aria-label="ناوبری اصلی">
+      <a href="#/dashboard" data-nav="dashboard">نمای کلی</a>
+      <a href="#/contacts" data-nav="contacts">مخاطبان</a>
+      <a href="#/threads" data-nav="threads">فرصت‌ها</a>
+      <a href="#/follow-ups" data-nav="follow-ups">پیگیری‌ها</a>
+      <a href="#/policy" data-nav="policy" data-role="manager">سیاست شرکت</a>
+      <a href="#/team" data-nav="team" data-role="manager">اعضای تیم</a>
+    </nav>
+    <div class="session">
+      <span id="session-user" class="muted"></span>
+      <button id="logout" type="button" class="secondary">خروج</button>
+    </div>
+    <p class="notice">فضای کاری خصوصی<br>هر تصمیم تجاری نیازمند تأیید انسان است.<br>هیچ پیامی خودکار ارسال نمی‌شود.</p>
+  </aside>
+  <main>
+    <header><span>عملیات تجارت خارجی شما</span><span class="badge">نسخه آزمایشی</span></header>
+    <div id="feedback" role="status" aria-live="polite"></div>
+    <section id="view" aria-live="polite"></section>
+  </main>
+</body>
+</html>

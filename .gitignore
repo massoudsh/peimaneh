@@ -38,6 +38,8 @@ npm-debug.log*
 .cache/
 .turbo/
 tsconfig.tsbuildinfo
+*.db
+*.sqlite3
 
 # OS
 Thumbs.db

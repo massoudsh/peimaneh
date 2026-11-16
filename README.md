@@ -35,11 +35,14 @@ docs/
   github-issues.json       backlog اجرایی issueها
 backend/
   app/                     API واقعی FastAPI + SQLAlchemy
-  test_followups.py        تست‌های integration endpointها
+  migrations/              migrationهای نسخه‌دار Alembic
+  entrypoint.sh            اجرای migration سپس uvicorn
+  test_*.py                تست‌های integration
 frontend/
-  index.html               dashboard چندصفحه‌ای
-  app.js                   صفحات و اتصال واقعی به API
-  style.css                رابط responsive و RTL-ready
+  index.html               میز کار فارسی و RTL
+  app.js                   صفحات، نقش‌ها و اتصال واقعی به API
+  style.css                رابط responsive
+  test-app.cjs             تست‌های جریان بدون مرورگر
 docker-compose.yml         frontend + backend + PostgreSQL
 ```
 
@@ -56,7 +59,9 @@ docker compose up --build
 - API و مستندات: `http://localhost:8000/docs`
 - Health: `http://localhost:8000/health`
 
-اجرای تست‌های backend داخل container:
+کانتینر backend پیش از اجرای API، `alembic upgrade head` را اجرا می‌کند؛ ساخت جدول در startup انجام نمی‌شود.
+
+اجرای تست‌های backend و frontend داخل container:
 
 ```bash
 docker compose --profile test run --build --rm backend-tests
@@ -75,11 +80,13 @@ docker compose down
 docker compose down -v
 ```
 
-رابط شامل صفحات Overview، Contacts، Opportunities، Follow-ups، Conversation و Company Policy است و فرم‌های آن مستقیماً endpointهای backend را فراخوانی می‌کنند؛ دکمه‌های نمایشی یا دادهٔ ساختگی در مسیر اصلی وجود ندارد.
+رابط شامل صفحات نمای کلی، مخاطبان، فرصت‌ها، پیگیری‌ها، مکالمه، سیاست شرکت و اعضای تیم است و همهٔ فرم‌ها endpointهای واقعی backend را فراخوانی می‌کنند. زبان پیش‌فرض رابط فارسی و جهت آن RTL است؛ محتوای پیام‌های خارجی با `dir="auto"` نمایش داده می‌شود.
 
-### ورود و نقش‌ها
+### ورود، راه‌اندازی و نقش‌ها
 
-صفحهٔ ورود در اولین اجرا نمایش داده می‌شود. اولین حسابی که ساخته می‌شود باید `manager` باشد؛ ثبت‌نام‌های بعدی فقط `sales` هستند. APIهای contacts، threads و dashboard به bearer token نیاز دارند و تمام policy endpointها فقط برای manager مجازند. رمزها به‌صورت plaintext ذخیره نمی‌شوند و token خام در دیتابیس نگهداری نمی‌شود.
+ثبت‌نام عمومی وجود ندارد. برای ساخت نخستین حساب مدیر، در `.env` مقدار `ALLOW_BOOTSTRAP_REGISTRATION=true` بگذارید، سرویس را اجرا کنید و از فرم «راه‌اندازی اولیه» یک حساب بسازید. سپس مقدار را به `false` برگردانید و سرویس را دوباره بالا بیاورید.
+
+مدیر می‌تواند از صفحهٔ «اعضای تیم» حساب‌های `sales` یا `manager` بسازد، نقش را تغییر دهد یا حساب را غیرفعال کند. تمام APIهای contacts، threads و dashboard به bearer token نیاز دارند؛ سیاست شرکت، کاربران و تأیید نهایی فقط برای مدیر مجاز است. رمزها با PBKDF2 و salt ذخیره می‌شوند، فقط hash توکن در دیتابیس می‌ماند و پس از پنج تلاش ناموفق حساب برای ۱۵ دقیقه قفل می‌شود. خروج، نشست جاری را باطل می‌کند و «خروج از همهٔ دستگاه‌ها» همهٔ نشست‌های کاربر را.
 
 
 دادهٔ PostgreSQL در volume منطقی `postgres_data` نگهداری می‌شود (نام واقعی شامل نام پروژه Compose است). مقادیر `.env.example` صرفاً نمونه‌اند؛ `POSTGRES_PASSWORD` و رمز URL-encoded در `DATABASE_URL` باید هماهنگ باشند و با تغییر user/db نیز URL اصلاح شود. تغییر رمز env رمز دیتابیسِ موجود در volume را تغییر نمی‌دهد. `.env` را commit نکنید. پورت‌های وب و API فقط روی loopback میزبان bind می‌شوند و دیتابیس پورت عمومی ندارد؛ انتشار نیازمند reverse proxy امن و رفع موانع امنیتی roadmap است. `down -v` همه داده‌های volume را حذف می‌کند؛ قبل از آن backup لازم است.
@@ -90,17 +97,25 @@ docker compose down -v
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+DATABASE_URL=sqlite:///./peimaneh.db .venv/bin/alembic upgrade head
 PYTHONPATH=. .venv/bin/python -m unittest discover -p 'test_*.py' -v
-.venv/bin/uvicorn app.main:app --reload
+ALLOW_BOOTSTRAP_REGISTRATION=true .venv/bin/uvicorn app.main:app --reload
 ```
 
 مستندات تعاملی API: `http://localhost:8000/docs`
+
+برای اجرای بدون Docker، frontend را با هر static server سرو کنید یا از nginx container استفاده کنید؛ مسیر `/api` باید به backend proxy شود. تست‌های frontend بدون مرورگر اجرا می‌شوند:
+
+```bash
+node --check frontend/app.js
+node --test frontend/test-app.cjs
+```
 
 جزئیات بیشتر: [`backend/README.md`](backend/README.md)
 
 ## وضعیت پروژه
 
-فاز ۱/۲ نقشه‌راه — API پیگیری، audit، policy، مخاطب و مذاکره به همراه dashboard، احراز هویت bearer-token و compose آماده است. اتصال واقعی کانال‌های خارجی، NLU/NLG، worker اعلان و migrationهای production هنوز باید در issueهای roadmap پیاده شوند. Human-in-the-loop همچنان اجباری است.
+فاز ۱/۲ نقشه‌راه — API پیگیری، audit، policy، مخاطب و مذاکره به همراه میز کار فارسی RTL، احراز هویت bearer-token با نقش‌ها، migrationهای Alembic و compose آماده است. اتصال واقعی کانال‌های خارجی، NLU/NLG، worker اعلان، جداسازی سازمانی (multi-tenant) و آزمون deployment روی PostgreSQL هنوز باقی است. Human-in-the-loop همچنان اجباری است.
 
 ## نقشه‌راه
 

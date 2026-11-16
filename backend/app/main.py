@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,23 +8,23 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.auth import current_user
-from app.database import Base, engine, get_db
+from app.database import engine, get_db
 from app.negotiation.state_machine import NegotiationStage
 from app.routers import auth, contacts, policy, threads
 
 
 @asynccontextmanager
 async def lifespan(app):
-    Base.metadata.create_all(bind=engine)
     yield
 
 
-app = FastAPI(title="پیمانه — Peimaneh API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="پیمانه — Peimaneh API", version="0.3.0", lifespan=lifespan)
 
+_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:8080").split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:4173"],
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_origins=_origins,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 

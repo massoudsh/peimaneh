@@ -5,7 +5,7 @@ import datetime
 import enum
 import uuid
 
-from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -53,6 +53,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.SALES)
     is_active: Mapped[bool] = mapped_column(default=True)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -71,10 +75,10 @@ class Contact(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String)
-    company: Mapped[str | None] = mapped_column(String, nullable=True)
-    country: Mapped[str | None] = mapped_column(String, nullable=True)
+    company: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    country: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     preferred_language: Mapped[str | None] = mapped_column(String, nullable=True)
-    channel: Mapped[Channel] = mapped_column(Enum(Channel), default=Channel.OTHER)
+    channel: Mapped[Channel] = mapped_column(Enum(Channel), default=Channel.OTHER, index=True)
     is_sensitive: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -85,9 +89,9 @@ class Thread(Base):
     __tablename__ = "threads"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    contact_id: Mapped[str] = mapped_column(ForeignKey("contacts.id"))
+    contact_id: Mapped[str] = mapped_column(ForeignKey("contacts.id"), index=True)
     stage: Mapped[NegotiationStage] = mapped_column(
-        Enum(NegotiationStage), default=NegotiationStage.INQUIRY
+        Enum(NegotiationStage), default=NegotiationStage.INQUIRY, index=True
     )
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -98,7 +102,7 @@ class Thread(Base):
         DateTime(timezone=True), nullable=True
     )
     next_follow_up_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, index=True
     )
 
     contact: Mapped["Contact"] = relationship(back_populates="threads")
@@ -111,12 +115,12 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"))
+    thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), index=True)
     sender: Mapped[MessageSender] = mapped_column(Enum(MessageSender))
     status: Mapped[MessageStatus] = mapped_column(Enum(MessageStatus), default=MessageStatus.RECEIVED)
     text: Mapped[str] = mapped_column(Text)
     translated_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
     thread: Mapped["Thread"] = relationship(back_populates="messages")
 
@@ -129,8 +133,8 @@ class PolicyConfig(Base):
     __tablename__ = "policy_configs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    version: Mapped[int] = mapped_column(default=1)
-    is_active: Mapped[bool] = mapped_column(default=True)
+    version: Mapped[int] = mapped_column(unique=True)
+    is_active: Mapped[bool] = mapped_column(default=True, index=True)
     product_category: Mapped[str] = mapped_column(String)
     price_floor: Mapped[float] = mapped_column(Float)
     max_discount_pct: Mapped[float] = mapped_column(Float, default=0.0)
@@ -147,8 +151,8 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"))
-    actor: Mapped[str] = mapped_column(String)  # "ai" | "human"
+    thread_id: Mapped[str | None] = mapped_column(ForeignKey("threads.id"), nullable=True, index=True)
+    actor: Mapped[str] = mapped_column(String)  # email کاربر تأییدشده، یا "system"
     action: Mapped[str] = mapped_column(String)  # مثلاً "propose_quote", "approve", "reject"
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
